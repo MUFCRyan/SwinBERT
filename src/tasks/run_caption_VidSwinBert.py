@@ -491,6 +491,7 @@ def update_existing_config_for_inference(args):
     train_args.do_test = True
     train_args.val_yaml = args.val_yaml
     train_args.test_video_fname = args.test_video_fname
+    # ZFC train_args.mixed_precision_method = args.mixed_precision_method
     return train_args
 
 def get_custom_args(base_config):

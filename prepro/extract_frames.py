@@ -16,7 +16,7 @@ def get_video_duration(video_file):
 
 def extract_frame_from_video(video_path, save_frame_path, fps=1, num_frames=-1,
                              start_ts=-1, end_ts=-1,
-                             suppress_msg=False, other_args="", overwrite=True):
+                             suppress_msg=False, other_args="", overwrite=True, is_for_win=False):
     """Uniformly split a video into clips of length {clip_len}.
     i.e., in the case of clip_len=60, the clips will be 00:00:00-00:01:00, 00:01:00-00:02:00, etc, ...
 
@@ -61,9 +61,16 @@ def extract_frame_from_video(video_path, save_frame_path, fps=1, num_frames=-1,
         # if not suppress_msg:
         #     print(duration, frame_rate, num_frames)
         output_exists = True
+        if is_for_win:
+            save_frame_path = save_frame_path + '/'
         for frame_idx in range(num_frames):
-            if not os.path.exists(f"{save_frame_path}{(frame_idx+1):04d}.jpg"):
-                print(f"{save_frame_path}{(frame_idx+1):04d}.jpg does not exist")
+            if is_for_win:
+                frame_file_name = f"{save_frame_path}{(frame_idx + 1):04d}.jpg"
+            else:
+                frame_file_name = f"{save_frame_path}{(frame_idx + 1):04d}.jpg"
+            if not os.path.exists(frame_file_name):
+                if not is_for_win:
+                    print(f"{frame_file_name} does not exist")
                 output_exists = False
                 save_frame_path = save_frame_path.replace(f"{num_frames}frames_test_value", f"{num_frames}frames_test_value_debug")
                 break
@@ -87,11 +94,17 @@ COMMON_VIDEO_ETX = set([
     ".mov", ".flv", ".swf"])
 
 
-def extract_frame(video_file_path, save_dir, fps, num_frames, debug=False, corrupt_files=[]):
+def extract_frame(video_file_path, save_dir, fps, num_frames, debug=False, corrupt_files=[], is_for_win=False):
     filename = os.path.basename(video_file_path)
     vid, _ = os.path.splitext(filename)
-    frame_name = f"{vid}_frame"
-    frame_save_path = join(save_dir, frame_name)
+    if is_for_win:
+        frame_name = str(vid)
+        frame_save_path = save_dir + '/' + frame_name
+        if not os.path.exists(frame_save_path):
+            os.makedirs(frame_save_path)
+    else:
+        frame_name = f"{vid}_frame"
+        frame_save_path = join(save_dir, frame_name)
 
     if (video_file_path not in corrupt_files and len(corrupt_files)):
         # print(f"skipping {video_file_path}")
@@ -103,7 +116,7 @@ def extract_frame(video_file_path, save_dir, fps, num_frames, debug=False, corru
         os.makedirs(save_dir, exist_ok=True)
         # scale=width:height
         extract_frame_from_video(video_file_path, frame_save_path, fps=fps, num_frames=num_frames,
-                                 suppress_msg=not debug, other_args="")
+                                 suppress_msg=not debug, other_args="", is_for_win=is_for_win)
 
 
 def load_tsv_to_mem(tsv_file, sep='\t'):
@@ -115,7 +128,7 @@ def load_tsv_to_mem(tsv_file, sep='\t'):
 
 
 def extract_all_frames(video_root_dir, save_dir, fps, num_frames,
-                       video_info_tsv, corrupt_files, num_workers, debug=False):
+                       video_info_tsv, corrupt_files, num_workers, debug=False, is_for_win=False):
 
     raw_video_info = load_tsv_to_mem(video_info_tsv)
     videoFiles = []
@@ -132,7 +145,7 @@ def extract_all_frames(video_root_dir, save_dir, fps, num_frames,
         extract_frame_partial = partial(
             extract_frame, fps=fps,
             save_dir=save_dir, debug=debug, corrupt_files=corrupt_files,
-            num_frames=num_frames)
+            num_frames=num_frames, is_for_win=is_for_win)
 
         with mp.Pool(num_workers) as pool, tqdm(total=len(videoFiles)) as pbar:
             for idx, _ in enumerate(
@@ -142,7 +155,7 @@ def extract_all_frames(video_root_dir, save_dir, fps, num_frames,
     else:
         for idx, d in tqdm(enumerate(videoFiles),
                            total=len(videoFiles), desc="extracting frames from video"):
-            extract_frame(d, save_dir, fps=fps, debug=debug)
+            extract_frame(d, save_dir, fps=fps, debug=debug, is_for_win=is_for_win)
             if debug and idx >= 10:
                 break
 
@@ -160,6 +173,7 @@ def main():
                         help="dir saving output videos")
     parser.add_argument("--video_info_tsv", type=str, default="",
                         help="tsv saving all video path")
+    parser.add_argument("--is_for_win", type=str, default="False")
     args = parser.parse_args()
     args.save_dir = args.save_dir + str(args.num_frames) + 'frames'
     corrupt_files = []
@@ -168,10 +182,10 @@ def main():
             lines = f.readlines()
             for ll in lines:
                 corrupt_files.append(ll.strip("\n"))
-
+    is_for_win = args.is_for_win == str(True)
     extract_all_frames(args.video_root_dir, args.save_dir, args.fps,
                        args.num_frames, args.video_info_tsv, corrupt_files,
-                       num_workers=args.num_workers, debug=args.debug)
+                       num_workers=args.num_workers, debug=args.debug, is_for_win=is_for_win)
 
 
 if __name__ == '__main__':

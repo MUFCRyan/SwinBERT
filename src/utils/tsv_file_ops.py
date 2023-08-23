@@ -70,10 +70,15 @@ def tsv_writer(values, tsv_file_name, sep='\t'):
     os.rename(tsv_8b_file_tmp, tsv_8b_file)
 
 
-def tsv_reader(tsv_file, sep='\t'):
-    with exclusive_open_to_read(tsv_file, 'r') as fp:
-        for i, line in enumerate(fp):
-            yield [x.strip() for x in line.split(sep)]
+def tsv_reader(tsv_file, sep='\t', use_lock=True):
+    if use_lock:
+        with exclusive_open_to_read(tsv_file, 'r') as fp:
+            for i, line in enumerate(fp):
+                yield [x.strip() for x in line.split(sep)]
+    else:
+        with open(tsv_file, 'r') as fp:
+            for i, line in enumerate(fp):
+                yield [x.strip() for x in line.split(sep)]
 
 
 def config_save_file(tsv_file, save_file=None, append_str='.new.tsv'):
@@ -144,7 +149,7 @@ def generate_linelist_file(label_file, save_file=None, ignore_attrs=()):
     # generate a list of image that has labels
     # images with only ignore labels are not selected. 
     line_list = []
-    rows = tsv_reader(label_file)
+    rows = tsv_reader(label_file, use_lock=False)
     for i, row in tqdm(enumerate(rows)):
         labels = json.loads(row[1])
         if labels:

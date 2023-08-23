@@ -67,7 +67,7 @@ def get_image_binaries(list_of_paths, image_size=56):
     return batch, shape
 
 
-def prepare_single_video_frames(vid_path, num_frames=32):
+def prepare_single_video_frames(vid_path, data_path, num_frames=32):
     previous_image_path = None
     images = []
     local_data_path = vid_path.replace("datasets", "_datasets")
@@ -92,11 +92,11 @@ def prepare_single_video_frames(vid_path, num_frames=32):
     return images
 
 
-def process_video_chunk(item, image_size=56, num_frames=32):
+def process_video_chunk(item, data_path, image_size=56, num_frames=32):
     # line_items = []
     # for item in items:
     _, vid_path = item
-    images = prepare_single_video_frames(vid_path, num_frames)
+    images = prepare_single_video_frames(vid_path, data_path, num_frames)
     image_binaries, image_shape = get_image_binaries(images, image_size)
     
     resolved_data_vid_id, vid_path = item
@@ -112,8 +112,9 @@ def main(args):
     os.makedirs(output_folder, exist_ok=True)
     # To generate a tsv file:
     # data_path: path to raw video files
-    global data_path
-    if args.dataset == "MSRVTT":
+    if len(args.dataset) > 0:
+        data_path = args.data_path
+    elif args.dataset == "MSRVTT":
         data_path = f"datasets/MSRVTT-v2/{args.num_frames}frames/" 
     else:
         data_path = f"datasets/{args.dataset}/{args.num_frames}frames/" 
@@ -123,7 +124,7 @@ def main(args):
 
     from functools import partial
     worker = partial(
-        process_video_chunk, image_size=args.image_size, num_frames=args.num_frames)
+        process_video_chunk, data_path=data_path, image_size=args.image_size, num_frames=args.num_frames)
 
     def gen_rows():
         with mp.Pool(args.num_workers) as pool, tqdm(total=len(data)) as pbar:
@@ -144,6 +145,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", help="MSRVTT-v2/VATEX",
                         type=str, default="MSRVTT")
+    parser.add_argument("--data_path", type=str, default="")
     parser.add_argument("--split", help="train/val/test",
                         type=str, default="val")
     parser.add_argument("--image_size", help="256/128/56",

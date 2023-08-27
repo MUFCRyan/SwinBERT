@@ -15,7 +15,7 @@ else
     RO=",readonly"
 fi
 
-docker run --gpus '"'device=$CUDA_VISIBLE_DEVICES'"' --ipc=host --rm -it \
+docker run --privileged -i --gpus '"'device=$CUDA_VISIBLE_DEVICES'"' --ipc=host --rm -it \
     --mount src=$(pwd),dst=/videocap,type=bind \
     --mount src=$DATA_DIR,dst=/videocap/datasets,type=bind$RO \
     --mount src=$MODEL_DIR,dst=/videocap/models,type=bind,readonly \

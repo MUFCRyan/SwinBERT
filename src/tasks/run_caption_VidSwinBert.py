@@ -374,6 +374,7 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                         exist_key2pred[parts[0]] = parts[1]
 
         with torch.no_grad():
+            is_save_input = False
             for step, (img_keys, batch, meta_data) in tqdm(enumerate(test_dataloader)):
                 # torch.cuda.empty_cache()
                 is_exist = True
@@ -408,6 +409,15 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                     "num_return_sequences": args.num_return_sequences,
                     "num_keep_best": args.num_keep_best,
                 }
+
+                '''if not is_save_input:
+                    input_str = inputs.__str__()
+                    print('1 inputs: {}'.format(input_str))
+                    save_path = 'input_str.txt'
+                    with open(save_path, mode='w', encoding='utf-8') as f:
+                        f.write(input_str)
+                    print('save {} finished'.format(save_path))
+                    is_save_input = True'''
 
                 tic = time.time()
                 # captions, logprobs
@@ -481,6 +491,7 @@ def update_existing_config_for_inference(args):
         from easydict import EasyDict
         train_args = EasyDict(json_data)
     except Exception as e:
+        print('update_existing_config_for_inference e: {}'.format(e))
         train_args = torch.load(op.join(checkpoint, 'training_args.bin'))
 
     train_args.eval_model_dir = args.eval_model_dir
@@ -491,7 +502,8 @@ def update_existing_config_for_inference(args):
     train_args.do_test = True
     train_args.val_yaml = args.val_yaml
     train_args.test_video_fname = args.test_video_fname
-    # ZFC train_args.mixed_precision_method = args.mixed_precision_method
+    train_args.mixed_precision_method = args.mixed_precision_method
+    train_args.num_workers = args.num_workers
     return train_args
 
 def get_custom_args(base_config):
@@ -521,7 +533,7 @@ def get_custom_args(base_config):
 
 def main(args):
     if args.do_train==False or args.do_eval==True:
-        args = update_existing_config_for_inference(args) 
+        args = update_existing_config_for_inference(args)
 
     # global training_saver
     args.device = torch.device(args.device)
@@ -531,7 +543,7 @@ def main(args):
     mkdir(args.output_dir)
     logger.info(f"creating output_dir at: {args.output_dir}")
     set_seed(args.seed, args.num_gpus)
-    
+
     if args.mixed_precision_method == "apex":
         fp16_trainning = f"apex O{args.amp_opt_level}"
     elif args.mixed_precision_method == "deepspeed":

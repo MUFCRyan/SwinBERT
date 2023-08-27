@@ -21,6 +21,7 @@ def get_swin_model(args):
         logger.info(f'video swin (model path): {model_path}')
     cfg = Config.fromfile(config_path)
     pretrained_path = model_path if args.pretrained_2d else None
+    print('pretrained_path = {}'.format(pretrained_path))
     backbone = SwinTransformer3D(
                     pretrained=pretrained_path,
                     pretrained2d=args.pretrained_2d,

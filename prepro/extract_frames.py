@@ -131,12 +131,14 @@ def extract_all_frames(video_root_dir, save_dir, fps, num_frames,
                        video_info_tsv, corrupt_files, num_workers, debug=False, is_for_win=False):
 
     raw_video_info = load_tsv_to_mem(video_info_tsv)
+    print('ZFC: raw_video_info = {}'.format(raw_video_info))
     videoFiles = []
     for _, line_item in enumerate(raw_video_info):
         input_file = line_item[0]
-        input_file = input_file.replace('datasets','_datasets')
+        # input_file = input_file.replace('datasets','_datasets')
         if os.path.isfile(input_file):
             videoFiles.append(input_file)
+    print('videoFiles len = {}'.format(len(videoFiles)))
     if debug:
         videoFiles = videoFiles[:1]
 

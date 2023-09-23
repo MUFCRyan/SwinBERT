@@ -34,6 +34,7 @@ from src.modeling.video_captioning_e2e_vid_swin_bert import VideoTransformer
 from src.modeling.load_swin import get_swin_model, reload_pretrained_swin
 from src.modeling.load_bert import get_bert_model
 from src.solver import AdamW, WarmupLinearLR
+from src.layers.fusion.fusion import FuseModel
 
 from azureml.core.run import Run
 aml_run = Run.get_context()
@@ -152,7 +153,13 @@ def train(args, train_dataloader, val_dataloader, model, tokenizer, training_sav
         inputs = {
             'input_ids': batch[0], 'attention_mask': batch[1],
             'token_type_ids': batch[2], 'img_feats': batch[3],
-            'masked_pos': batch[4], 'masked_ids': batch[5]
+            'masked_pos': batch[4], 'masked_ids': batch[5],
+            "use_fusion": args.use_fusion,
+            "feat_summary": torch.zeros((0, 0, 0)),
+            "feat_content": torch.zeros((0, 0, 0)),
+            "feat_2d": torch.zeros((0, 0, 0)),
+            "feat_3d": torch.zeros((0, 0, 0)),
+            "feat_audio": torch.zeros((0, 0, 0)),
         }
 
         if iteration == 1:
@@ -408,6 +415,12 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                     "length_penalty": args.length_penalty,
                     "num_return_sequences": args.num_return_sequences,
                     "num_keep_best": args.num_keep_best,
+                    "use_fusion": args.use_fusion,
+                    "feat_summary": torch.zeros((0, 0, 0)),
+                    "feat_content": torch.zeros((0, 0, 0)),
+                    "feat_2d": torch.zeros((0, 0, 0)),
+                    "feat_3d": torch.zeros((0, 0, 0)),
+                    "feat_audio": torch.zeros((0, 0, 0)),
                 }
 
                 '''if not is_save_input:
@@ -504,6 +517,12 @@ def update_existing_config_for_inference(args):
     train_args.test_video_fname = args.test_video_fname
     train_args.mixed_precision_method = args.mixed_precision_method
     train_args.num_workers = args.num_workers
+    train_args.dim = args.dim
+    train_args.text_tran_num_layers = args.text_tran_num_layers
+    train_args.visual_tran_num_layers = args.visual_tran_num_layers
+    train_args.audio_tran_num_layers = args.audio_tran_num_layers
+    train_args.fuse_tran_num_layers = args.fuse_tran_num_layers
+    train_args.activate_fun = args.activate_fun
     return train_args
 
 def get_custom_args(base_config):
@@ -528,6 +547,13 @@ def get_custom_args(base_config):
                         help="-1: random init, 0: random init and then diag-based copy, 1: interpolation")
     parser.add_argument('--resume_checkpoint', type=str, default='None')
     parser.add_argument('--test_video_fname', type=str, default='None')
+    parser.add_argument('--use_fusion', type=str_to_bool, nargs='?', const=True, default=False)
+    parser.add_argument('--dim', type=int, default=1024)
+    parser.add_argument('--text_tran_num_layers', type=int, default=6)
+    parser.add_argument('--visual_tran_num_layers', type=int, default=6)
+    parser.add_argument('--audio_tran_num_layers', type=int, default=6)
+    parser.add_argument('--fuse_tran_num_layers', type=int, default=6)
+    parser.add_argument('--activate_fun', type=str, default='gelu', help='Activation function')
     args = base_config.parse_args()
     return args
 
@@ -578,9 +604,10 @@ def main(args):
     # Get BERT and tokenizer 
     bert_model, config, tokenizer = get_bert_model(args)
     # build SwinBERT based on training configs
-    vl_transformer = VideoTransformer(args, config, swin_model, bert_model) 
+    fuse_model = FuseModel(args)
+    vl_transformer = VideoTransformer(args, config, swin_model, bert_model, fuse_model)
     vl_transformer.freeze_backbone(freeze=args.freeze_backbone)
-
+    print('args = {}'.format(args))
     if args.do_eval:
         # load weights for eval/inference
         logger.info(f"Loading state dict from checkpoint {args.resume_checkpoint}")

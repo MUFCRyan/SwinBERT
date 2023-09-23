@@ -2,9 +2,11 @@ import torch
 from fairscale.nn.misc import checkpoint_wrapper
 import random
 
+from src.layers.fusion.fusion import FuseModel
+
 
 class VideoTransformer(torch.nn.Module):
-    def __init__(self, args, config, swin, transformer_encoder):
+    def __init__(self, args, config, swin, transformer_encoder, fuse_model):
         super(VideoTransformer, self).__init__()
         self.config = config
         self.use_checkpoint = args.use_checkpoint and not args.freeze_backbone
@@ -13,6 +15,7 @@ class VideoTransformer(torch.nn.Module):
         else:
             self.swin = swin
         self.trans_encoder = transformer_encoder
+        self.fusion = fuse_model
         self.img_feature_dim = int(args.img_feature_dim)
         self.use_grid_feat = args.grid_feat
         self.latent_feat_size = self.swin.backbone.norm.normalized_shape[0]
@@ -32,13 +35,24 @@ class VideoTransformer(torch.nn.Module):
     def forward(self, *args, **kwargs):
         images = kwargs['img_feats']
         B, S, C, H, W = images.shape  # batch, segment, chanel, hight, width
+        print('images shape 0 = {}'.format(images.shape))
         # (B x S x C x H x W) --> (B x C x S x H x W)
         images = images.permute(0, 2, 1, 3, 4)
+        print('images shape 1 = {}'.format(images.shape))
         vid_feats = self.swin(images)
+        print('vid_feats shape 0 = {}'.format(vid_feats.shape))
         if self.use_grid_feat==True:
             vid_feats = vid_feats.permute(0, 2, 3, 4, 1)
+        print('vid_feats shape 1 = {}'.format(vid_feats.shape))
         vid_feats = vid_feats.view(B, -1, self.latent_feat_size)
+        # 此处在 vid_feats 拼接融合后的特征，注意每个特征的维度是 512
+        if kwargs['use_fusion']:
+            fusion_feats = self.fusion(kwargs['feat_summary'], kwargs['feat_content'], kwargs['feat_2d'], kwargs['feat_3d'], kwargs['feat_audio'])
+            vid_feats = torch.cat((vid_feats, fusion_feats), 1)
+        print('latent_feat_size = {}'.format(self.latent_feat_size))
+        print('vid_feats shape 2 = {}'.format(vid_feats.shape))
         vid_feats = self.fc(vid_feats)
+        print('vid_feats shape 3 = {}'.format(vid_feats.shape))
         # prepare VL transformer inputs
         kwargs['img_feats'] = vid_feats
         if self.trans_encoder.bert.encoder.output_attentions:

@@ -111,6 +111,7 @@ def make_data_loader(args, yaml_file, tokenizer, is_distributed=True,
     batch_sampler = make_batch_data_sampler(
         sampler, images_per_gpu, num_iters, start_iter
     )
+    print('ZFC num_workers = {}'.format(args.num_workers))
     data_loader = torch.utils.data.DataLoader(
         dataset, num_workers=args.num_workers, batch_sampler=batch_sampler,
         pin_memory=True, worker_init_fn=init_seeds,

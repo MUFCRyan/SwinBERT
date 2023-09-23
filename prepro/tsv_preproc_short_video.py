@@ -13,7 +13,7 @@ from src.utils.tsv_file_ops import generate_linelist_file
 from collections import defaultdict
 
 # data path to raw video files
-data_vid_id = "E:/Dataset/NLP/ShortVideo/Kuaishou/other_model_test_data/videos/{}.mp4"
+data_vid_id = "datasets/ShortVideo/videos/{}.mp4"
 
 # dataset_path: path to dataset
 dataset_path = "./datasets/ShortVideo/"
@@ -201,18 +201,6 @@ def process(split_type):
     out_yaml = '{}.yaml'.format(split_type)
     write_to_yaml_file(out_cfg, op.join(dataset_path, out_yaml))
     print('Create yaml file: {}'.format(op.join(dataset_path, out_yaml)))
-
-
-def csv_to_json(csv_path):
-    data = {
-        'videos': [],
-        'sentences': []
-    }
-    pid, title = 'photo_id', 'title'
-    cols = [pid, title]
-    df = pd.read_csv(csv_path, sep='\t', usecols=cols)
-    df = df[cols]
-
 
 
 def main():

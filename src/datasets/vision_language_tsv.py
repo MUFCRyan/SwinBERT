@@ -62,6 +62,8 @@ class VisionLanguageTSVDataset(object):
             self.img_line_list = [i for i in range(self.label_tsv.num_rows())]
             self.cap_line_list = [0 for i in range(self.label_tsv.num_rows())]
 
+        print('cap_line_list: {}'.format(self.cap_line_list))
+
         if is_train:
             assert self.cap_tsv is not None
             assert tokenizer is not None

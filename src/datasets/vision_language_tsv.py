@@ -3,6 +3,9 @@ Copyright (c) Microsoft Corporation.
 Licensed under the MIT license.
 
 """
+import os.path
+import pickle
+
 import torch
 import torchvision.transforms as transforms
 import cv2
@@ -25,6 +28,48 @@ import base64
 from .data_utils.video_transforms import Compose, Resize, RandomCrop, ColorJitter, Normalize, CenterCrop, RandomHorizontalFlip, RandomResizedCrop
 from .data_utils.volume_transforms import ClipToTensor
 import code, time
+
+TARGET_FLOAT = torch.float32
+
+
+def check_fill_feats(feat_dir, path):
+    real_dir = feat_dir + '/' + path + '/all'
+    feats = {}
+    if os.path.exists(real_dir):
+        feat_dirs = os.listdir(real_dir)
+        for feat in feat_dirs:
+            (video_id, ext_name) = os.path.splitext(feat)
+            feats[str(video_id)] = '{}/{}'.format(real_dir, feat)
+    return feats
+
+
+def check_add_meta(meta_data, feats, video_id, key):
+    feat = ''
+    if video_id in feats.keys():
+        feat = feats[str(video_id)]
+        # feat = read_feature_from_file(feat)
+    meta_data[key] = feat
+
+
+def read_feature_from_file(feature_file):
+    feature_list = pickle.load(open(feature_file, 'rb'))
+    return align_features(feature_list)
+
+def align_features(feature_list):
+    tensor_list = []
+    for feature in feature_list:
+        feature_type = type(feature)
+        if feature_type is torch.Tensor:
+            feature = feature.detach()
+        elif feature_type is float or feature_type is int:
+            feature = torch.FloatTensor(feature)
+        else:
+            feature = torch.from_numpy(feature)
+        if feature.dtype != TARGET_FLOAT:
+            feature = feature.to(dtype=TARGET_FLOAT)
+        tensor_list.append(feature)
+    return torch.stack(tensor_list)
+
 
 class VisionLanguageTSVDataset(object):
     def __init__(self, args, yaml_file, tokenizer, tensorizer=None, is_train=True, on_memory=False):
@@ -114,6 +159,12 @@ class VisionLanguageTSVDataset(object):
                 Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])
             ]            
         self.raw_video_prcoess = Compose(self.raw_video_crop_list)
+        self.use_fusion = args.use_fusion and os.path.exists(args.fusion_feat_dir)
+        self.fusion_feat_sums = check_fill_feats(args.fusion_feat_dir, 'text/summary')
+        self.fusion_feat_cons = check_fill_feats(args.fusion_feat_dir, 'text/content')
+        self.fusion_feat_2ds = check_fill_feats(args.fusion_feat_dir, 'visual/2d')
+        self.fusion_feat_3ds = check_fill_feats(args.fusion_feat_dir, 'visual/3d')
+        self.fusion_feat_audios = check_fill_feats(args.fusion_feat_dir, 'audio')
 
     def get_composite_source_idx(self):
         if self.is_composite:
@@ -355,7 +406,15 @@ class VisionLanguageTSVDataset(object):
         meta_data['img_key'] = img_key
         meta_data['is_video'] = is_video # True: video data, False: image data
         meta_data['tag'] = tag
-
+        if self.use_fusion:
+            # 解析 img_key 得到 video_id --> 根据 video_id 获取多模态特征；video_id 示例：'datasets/MSRVTT-v2/videos/video6531.mp4'
+            (parent_dir, file_name_ext) = os.path.split(img_key)
+            (video_id, ext_name) = os.path.splitext(file_name_ext)
+            check_add_meta(meta_data, self.fusion_feat_sums, video_id, 'feat_summary')
+            check_add_meta(meta_data, self.fusion_feat_cons, video_id, 'feat_content')
+            check_add_meta(meta_data, self.fusion_feat_2ds, video_id, 'feat_2d')
+            check_add_meta(meta_data, self.fusion_feat_3ds, video_id, 'feat_3d')
+            check_add_meta(meta_data, self.fusion_feat_audios, video_id, 'feat_audio')
         return img_key, example, meta_data
 
 class VisionLanguageTSVYamlDataset(VisionLanguageTSVDataset):

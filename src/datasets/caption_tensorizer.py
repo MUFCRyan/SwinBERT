@@ -1,8 +1,12 @@
+import os.path
+
 import torch
 import random
 import os.path as op
 from src.utils.logger import LOGGER
 import re, html
+
+import src.utils.fusion_util as fusion_util
 
 FLAIR_TAG = {
     "noun": ["NN", "NNP", "NNPS", "NNS", "PRP", "PRP$", "WP", "WP$"],
@@ -17,7 +21,8 @@ class CaptionTensorizer(object):
             max_seq_a_length=40, mask_prob=0.15, max_masked_tokens=3,
             attn_mask_type='seq2seq', is_train=True, mask_b=False,
             text_mask_type='random', tag_to_mask=None,
-            mask_tag_prob=0.8, random_mask_prob=0.5):
+            mask_tag_prob=0.8, random_mask_prob=0.5,
+                 use_fusion=False, fusion_feat_dir=''):
         """Constructor.
         Args:
             tokenizer: tokenizer for text processing.
@@ -59,6 +64,7 @@ class CaptionTensorizer(object):
         
         self._triangle_mask = torch.tril(torch.ones((self.max_seq_len, 
             self.max_seq_len), dtype=torch.long))
+        self.use_fusion = use_fusion and os.path.exists(fusion_feat_dir)
     
     def get_pos_tag_mask_idx(self, seq_a_len, text_meta):
         
@@ -118,6 +124,8 @@ class CaptionTensorizer(object):
         img_len = self.max_img_seq_len
 
         max_len = self.max_seq_len + self.max_img_seq_len
+        if self.use_fusion:
+            max_len += fusion_util.ALL_FEATS_LEN
         # C: caption, L: label, R: image region
         c_start, c_end = 0, seq_a_len
         l_start, l_end = self.max_seq_a_len, seq_len
@@ -392,6 +400,8 @@ def build_tensorizer(args, tokenizer, is_train=True):
             tag_to_mask=tag_to_mask,
             random_mask_prob=args.random_mask_prob,
             # tagger=tagger,
+            use_fusion=args.use_fusion,
+            fusion_feat_dir=args.fusion_feat_dir
         )
     return CaptionTensorizer(
             tokenizer,
@@ -400,5 +410,7 @@ def build_tensorizer(args, tokenizer, is_train=True):
             max_seq_a_length=args.max_gen_length,
             is_train=False,
             attn_mask_type=args.attn_mask_type,
+            use_fusion=args.use_fusion,
+            fusion_feat_dir=args.fusion_feat_dir
     )
 

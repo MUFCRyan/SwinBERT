@@ -1,3 +1,6 @@
+import os.path
+import pickle
+
 import torch
 from fairscale.nn.misc import checkpoint_wrapper
 import random
@@ -47,8 +50,10 @@ class VideoTransformer(torch.nn.Module):
         vid_feats = vid_feats.view(B, -1, self.latent_feat_size)
         # 此处在 vid_feats 拼接融合后的特征，注意每个特征的维度是 512
         if kwargs['use_fusion']:
-            fusion_feats = self.fusion(kwargs['feat_summary'], kwargs['feat_content'], kwargs['feat_2d'], kwargs['feat_3d'], kwargs['feat_audio'])
-            vid_feats = torch.cat((vid_feats, fusion_feats), 1)
+            fusion_feat_dir = kwargs['fusion_feat_dir']
+            if os.path.exists(fusion_feat_dir):
+                fusion_feats = self.fusion(kwargs['feat_summary'], kwargs['feat_content'], kwargs['feat_2d'], kwargs['feat_3d'], kwargs['feat_audio'])
+                vid_feats = torch.cat((vid_feats, fusion_feats), 1)
         print('latent_feat_size = {}'.format(self.latent_feat_size))
         print('vid_feats shape 2 = {}'.format(vid_feats.shape))
         vid_feats = self.fc(vid_feats)

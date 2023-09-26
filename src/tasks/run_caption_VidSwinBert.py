@@ -39,6 +39,8 @@ from src.layers.fusion.fusion import FuseModel
 from azureml.core.run import Run
 aml_run = Run.get_context()
 
+import src.utils.fusion_util as fusion_util
+
 def compute_score_with_logits(logits, labels):
     logits = torch.max(logits, -1)[1].data # argmax
     return logits == labels
@@ -154,13 +156,9 @@ def train(args, train_dataloader, val_dataloader, model, tokenizer, training_sav
             'input_ids': batch[0], 'attention_mask': batch[1],
             'token_type_ids': batch[2], 'img_feats': batch[3],
             'masked_pos': batch[4], 'masked_ids': batch[5],
-            "use_fusion": args.use_fusion,
-            "feat_summary": torch.zeros((0, 0, 0)),
-            "feat_content": torch.zeros((0, 0, 0)),
-            "feat_2d": torch.zeros((0, 0, 0)),
-            "feat_3d": torch.zeros((0, 0, 0)),
-            "feat_audio": torch.zeros((0, 0, 0)),
         }
+
+        fusion_util.check_fill_feats(args, meta_data, inputs)
 
         if iteration == 1:
             for k, v in inputs.items():
@@ -170,6 +168,8 @@ def train(args, train_dataloader, val_dataloader, model, tokenizer, training_sav
             # deepspeed does not autocast inputs
             inputs = fp32_to_fp16(inputs)
 
+        inputs["use_fusion"] = args.use_fusion
+        inputs["fusion_feat_dir"] = args.fusion_feat_dir
         if args.mixed_precision_method == "fairscale":
             with torch.cuda.amp.autocast(enabled=True):
                 outputs = model(**inputs)
@@ -416,12 +416,10 @@ def test(args, test_dataloader, model, tokenizer, predict_file):
                     "num_return_sequences": args.num_return_sequences,
                     "num_keep_best": args.num_keep_best,
                     "use_fusion": args.use_fusion,
-                    "feat_summary": torch.zeros((0, 0, 0)),
-                    "feat_content": torch.zeros((0, 0, 0)),
-                    "feat_2d": torch.zeros((0, 0, 0)),
-                    "feat_3d": torch.zeros((0, 0, 0)),
-                    "feat_audio": torch.zeros((0, 0, 0)),
+                    "fusion_feat_dir": args.fusion_feat_dir,
                 }
+
+                fusion_util.check_fill_feats(args, meta_data, inputs)
 
                 '''if not is_save_input:
                     input_str = inputs.__str__()
@@ -517,7 +515,9 @@ def update_existing_config_for_inference(args):
     train_args.test_video_fname = args.test_video_fname
     train_args.mixed_precision_method = args.mixed_precision_method
     train_args.num_workers = args.num_workers
+    train_args.use_fusion = args.use_fusion
     train_args.dim = args.dim
+    train_args.fusion_feat_dir = args.fusion_feat_dir
     train_args.text_tran_num_layers = args.text_tran_num_layers
     train_args.visual_tran_num_layers = args.visual_tran_num_layers
     train_args.audio_tran_num_layers = args.audio_tran_num_layers
@@ -548,6 +548,7 @@ def get_custom_args(base_config):
     parser.add_argument('--resume_checkpoint', type=str, default='None')
     parser.add_argument('--test_video_fname', type=str, default='None')
     parser.add_argument('--use_fusion', type=str_to_bool, nargs='?', const=True, default=False)
+    parser.add_argument('--fusion_feat_dir', type=str, default='./datasets/MSRVTT-v2/features')
     parser.add_argument('--dim', type=int, default=1024)
     parser.add_argument('--text_tran_num_layers', type=int, default=6)
     parser.add_argument('--visual_tran_num_layers', type=int, default=6)

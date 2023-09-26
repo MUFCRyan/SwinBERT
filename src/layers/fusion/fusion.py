@@ -62,11 +62,12 @@ class TextModel(nn.Module):
 
     def forward(self, feature_summary, feature_content):
         feat_list = []
-        if feature_summary is not None:
+        if feature_summary is not None and type(feature_summary) is torch.Tensor:
             feature_summary = self.summary_encoder(feature_summary)
             feat_list.append(feature_summary)
-        feature_content = self.content_encoder(feature_content)
-        feat_list.append(feature_content)
+        if feature_content is not None and type(feature_content) is torch.Tensor:
+            feature_content = self.content_encoder(feature_content)
+            feat_list.append(feature_content)
         feature_output = torch.cat(feat_list, dim=1)
         # feature_output, _ = self.bi_lstm(feature_output)
         feature_output = self.transformer_encoder(feature_output)
@@ -84,10 +85,10 @@ class VisualModel(nn.Module):
 
     def forward(self, feature_2d, feature_3d):
         feat_list = []
-        if feature_2d is not None:
+        if feature_2d is not None and type(feature_2d) is torch.Tensor:
             feature_2d = self.encoder_2d(feature_2d)
             feat_list.append(feature_2d)
-        if feature_3d is not None:
+        if feature_3d is not None and type(feature_3d) is torch.Tensor:
             feature_3d = self.encoder_3d(feature_3d)
             feat_list.append(feature_3d)
         feature_output = None
@@ -105,7 +106,7 @@ class AudioModel(nn.Module):
 
     def forward(self, feature):
         feature_output = None
-        if feature is not None:
+        if feature is not None and type(feature) is torch.Tensor:
             feature_output = self.encoder(feature)
             feature_output = self.transformer_encoder(feature_output)
         return feature_output
@@ -122,7 +123,8 @@ class FuseModel(nn.Module):
     def forward(self, feat_summary, feat_content, feat_2d, feat_3d, feat_audio):
         feat_list = []
         feat_text = self.text_model(feat_summary, feat_content)
-        feat_list.append(feat_text)
+        if feat_text is not None:
+            feat_list.append(feat_text)
         feat_visual = self.visual_model(feat_2d, feat_3d)
         if feat_visual is not None:
             feat_list.append(feat_visual)

@@ -1685,7 +1685,10 @@ class BertForImageCaptioning(BertPreTrainedModel):
             masked_pos=None, masked_ids=None,
             masked_pos_img=None, masked_token_img=None,
             token_type_ids=None, position_ids=None, head_mask=None,
-            is_training=True, encoder_history_states=None):
+            is_training=True, encoder_history_states=None,
+            use_fusion=None, fusion_feat_dir=None, feat_summary=None, feat_content=None,
+            feat_2d=None, feat_3d=None, feat_audio=None, dim=None
+                       ):
         outputs = self.bert(input_ids, img_feats=img_feats, attention_mask=attention_mask,
                 position_ids=position_ids, token_type_ids=token_type_ids,
                 head_mask=head_mask,
@@ -1843,6 +1846,8 @@ class BertForImageCaptioning(BertPreTrainedModel):
             use_cbs=False, fsm=None, num_constraints=None,
             min_constraints_to_satisfy=None, use_hypo=False,
             decoding_constraint_flag=None, bad_ending_ids=None,
+            use_fusion=None, fusion_feat_dir=None, feat_summary=None, feat_content=None,
+            feat_2d=None, feat_3d=None, feat_audio=None, dim=None
             ):
         """ Generates captions given image features
         """

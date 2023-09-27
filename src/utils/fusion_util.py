@@ -1,6 +1,8 @@
 import os
 import pickle
+import platform
 
+import requests
 import torch
 import numpy as np
 
@@ -78,3 +80,34 @@ def check_fill_feats(args, meta_data, inputs):
         inputs[KEY_FEAT_2D] = read_feature_from_file(meta_data, KEY_FEAT_2D)
         inputs[KEY_FEAT_3D] = read_feature_from_file(meta_data, KEY_FEAT_3D)
         inputs[KEY_FEAT_AUDIO] = read_feature_from_file(meta_data, KEY_FEAT_AUDIO)
+
+def save_msg_to_local(msg, file_path):
+    mode = 'w+'
+    if os.path.exists(file_path):
+        mode = 'r+'
+    with open(file_path, mode) as f:
+        f.write(msg)
+
+def is_linux():
+    return platform.system().lower() == 'linux'
+
+
+def check_shutdown():
+    if is_linux():
+        os.system("/usr/bin/shutdown")
+
+
+_TOKEN = 'eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1aWQiOjE0MzAyMSwidXVpZCI6IjgyNTY3ZjBmLWJmYzUtNDhhNS1iNGUxLWMzNGEzODlmMTAwOCIsImlzX2FkbWluIjpmYWxzZSwiaXNfc3VwZXJfYWRtaW4iOmZhbHNlLCJzdWJfbmFtZSI6IiIsInRlbmFudCI6ImF1dG9kbCIsInVwayI6IiJ9.qYYNIo8gkliLAsssn-CW5Qwors91mQTrP4-nrWHrzxBT7JVifhuKKP9C_ZnbPQqDfACnpBsjybHjmbmF-YkIkg'
+headers = {"Authorization": _TOKEN}
+
+
+def send_wechat_msg(name, msg):
+    if not is_linux():
+        return
+    text = name + ' ' + msg
+    resp = requests.post("https://www.autodl.com/api/v1/wechat/message/send",
+                         json={
+                             "title": "SwinBERT",
+                             "name": text
+                         }, headers=headers)
+    print(resp.content.decode())

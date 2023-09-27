@@ -555,6 +555,7 @@ def get_custom_args(base_config):
     parser.add_argument('--audio_tran_num_layers', type=int, default=6)
     parser.add_argument('--fuse_tran_num_layers', type=int, default=6)
     parser.add_argument('--activate_fun', type=str, default='gelu', help='Activation function')
+    parser.add_argument('--shutdown', type=str, default='True')
     args = base_config.parse_args()
     return args
 
@@ -717,4 +718,18 @@ def main(args):
 if __name__ == "__main__":
     shared_configs.shared_video_captioning_config(cbs=True, scst=True)
     args = get_custom_args(shared_configs)
-    main(args)
+    shutdown = args.shutdown == str(True)
+    delattr(args, 'shutdown')
+    print('shutdown = {}'.format(shutdown))
+    try:
+        main(args)
+        fusion_util.send_wechat_msg('main', 'finished')
+        fusion_util.check_shutdown()
+    except Exception as e:
+        name = 'train or test'
+        msg = 'exception: {}'.format(str(e))
+        print(name + ' ' + msg)
+        fusion_util.save_msg_to_local(name + ' ' + msg, 'TrainException.txt')
+        fusion_util.send_wechat_msg(name, msg)
+        if shutdown:
+            fusion_util.check_shutdown()

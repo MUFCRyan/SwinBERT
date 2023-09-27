@@ -1,0 +1,5 @@
+train:
+    CUDA_VISIBLE_DEVICES=0 python src/tasks/run_caption_VidSwinBert.py --config src/configs/VidSwinBert/msrvtt_8frm_default.json --train_yaml MSRVTT-v2/train_32frames.yaml --val_yaml MSRVTT-v2/val_32frames.yaml --per_gpu_train_batch_size 6 --per_gpu_eval_batch_size 6 --num_train_epochs 15 --learning_rate 0.0003 --max_num_frames 32 --pretrained_2d 0 --backbone_coef_lr 0.05 --mask_prob 0.5 --max_masked_token 45 --zero_opt_stage 1 --mixed_precision_method deepspeed --deepspeed_fp16 --gradient_accumulation_steps 4 --learn_mask_enabled --loss_sparse_w 0.5 --output_dir ./output --dim 1024 --eval_model_dir ./models/table1/msrvtt/best-checkpoint/ --use_fusion True --fusion_feat_dir ./datasets/MSRVTT-v2/features
+
+eval:
+    CUDA_VISIBLE_DEVICES=0 python src/tasks/run_caption_VidSwinBert.py --val_yaml MSRVTT-v2/val_32frames.yaml --do_eval true --do_train false --eval_model_dir ./models/table1/msrvtt/best-checkpoint/ --dim 1024 --use_fusion True --fusion_feat_dir ./datasets/MSRVTT-v2/features
